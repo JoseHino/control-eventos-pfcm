@@ -1,0 +1,12 @@
+# Libros de origen del cliente: viven en C:\AMMA, no se suben
+*.xlsm
+*.xlsx
+
+# Intermedios del ETL (se regeneran)
+etl/eventos.json
+etl/eventos_min.json
+
+# Ruido
+.DS_Store
+Thumbs.db
+__pycache__/
