@@ -10,3 +10,10 @@ etl/eventos_min.json
 .DS_Store
 Thumbs.db
 __pycache__/
+
+# Credenciales: NUNCA al repositorio
+.env
+web/.sesion-prueba.json
+
+# Cache local de wrangler
+.wrangler/

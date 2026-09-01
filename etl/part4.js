@@ -118,19 +118,21 @@ function fusionar(nuevos){
 }
 
 function importar(file){
+  if(!S.esAmma){ toast("Solo el equipo de AMMA puede actualizar los datos."); return; }
   const fr = new FileReader();
-  fr.onload = e => {
+  fr.onload = async e => {
     try{
       const {rows, hoja} = leerLibro(new Uint8Array(e.target.result));
       const res = fusionar(rows);
       S.snapshot = new Date(file.lastModified).toISOString().slice(0,10);
       S.origen = file.name;
-      guardar();
+      toast("Hoja «" + hoja + "»: " + nf(rows.length) + " filas · " + nf(res.alta) +
+            " altas, " + nf(res.act) + " actualizados. Guardando…");
+      await guardarEnServidor();
       pintarTodo();
-      toast("Hoja «" + hoja + "»: " + nf(rows.length) + " filas leídas · " +
-            nf(res.alta) + " altas, " + nf(res.act) + " actualizados. Total: " + nf(S.rows.length) + " eventos.");
+      toast("Guardado: " + nf(S.rows.length) + " eventos. Ya lo ve todo el equipo.");
     }catch(err){
-      toast("No se ha podido leer el libro: " + err.message);
+      toast("No se ha podido guardar: " + err.message);
     }
   };
   fr.onerror = () => toast("No se ha podido abrir el fichero.");
@@ -215,7 +217,11 @@ function pintarTodo(){
   const desfase = diasEntre(S.snapshot, hoyISO());
   $("#stamp").innerHTML = "Datos a <b>" + fecha(S.snapshot) + "</b>" +
     (desfase > UMBRAL.datosViejosDias ? " · <b style='color:#ffd7d7'>" + nf(desfase) + " días de antigüedad</b>" : "") +
-    "<br>" + nf(S.rows.length) + " eventos · " + esc(S.origen);
+    "<br>" + nf(S.rows.length) + " eventos · " + esc(S.usuario) +
+    (S.esAmma ? "" : " (solo lectura)");
+  /* Escribir exige rol amma en la politica del servidor: si no lo tiene,
+     el boton sobra. La barrera de verdad esta en la base de datos. */
+  $("#btnLoad").hidden = !S.esAmma;
   contadores();
   Object.keys(PINTADO).forEach(k => delete PINTADO[k]);
   pintar(S.tab);
@@ -337,14 +343,56 @@ addEventListener("drop", e => {
   if(f) importar(f);
 });
 
+$("#btnSalir").addEventListener("click", async () => {
+  await sb.auth.signOut();
+  location.reload();
+});
+
+$("#loginForm").addEventListener("submit", async e => {
+  e.preventDefault();
+  const btn = $("#lgBtn"), err = $("#lgError");
+  btn.disabled = true; btn.textContent = "Entrando…"; err.hidden = true;
+  const { error } = await sb.auth.signInWithPassword({
+    email: $("#lgEmail").value.trim(), password: $("#lgPass").value
+  });
+  if(error){
+    err.textContent = /invalid/i.test(error.message)
+      ? "Correo o contraseña incorrectos."
+      : "No se ha podido entrar: " + error.message;
+    err.hidden = false;
+    btn.disabled = false; btn.textContent = "Entrar";
+    $("#lgPass").select();
+    return;
+  }
+  await arrancar();
+});
+
 /* ---------- Arranque ---------- */
 try{
   const tm = localStorage.getItem("pfcm_tema");
   if(tm) document.documentElement.setAttribute("data-theme", tm);
 }catch(_){}
 
-if(!restaurar()){
-  S.rows = DATA_SEED;
-  S.snapshot = SNAPSHOT;
+async function arrancar(){
+  $("#puerta").hidden = true;
+  $("#cargando").hidden = false;
+  try{
+    await cargarDeServidor();
+    pintarTodo();
+  }catch(e){
+    $("#cargando").hidden = true;
+    $("#puerta").hidden = false;
+    const err = $("#lgError");
+    err.textContent = "Sesión iniciada, pero no se han podido leer los datos: " + e.message;
+    err.hidden = false;
+    return;
+  }
+  $("#cargando").hidden = true;
 }
-pintarTodo();
+
+/* Al abrir: si ya hay sesion guardada se entra directo; si no, se pide acceso. */
+(async function inicio(){
+  const { data: { session } } = await sb.auth.getSession();
+  if(session) await arrancar();
+  else { $("#puerta").hidden = false; $("#lgEmail").focus(); }
+})();

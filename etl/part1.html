@@ -31,6 +31,40 @@ html[data-theme="dark"]{
   --shadow:0 1px 2px rgba(0,0,0,.4);
 }
 *{box-sizing:border-box}
+
+/* ---------- Puerta de acceso ---------- */
+#puerta{position:fixed;inset:0;z-index:300;background:#0b2a8a;display:grid;place-items:center;padding:26px}
+html[data-theme="dark"] #puerta{background:#101a33}
+#puerta[hidden]{display:none}
+.acceso{width:100%;max-width:352px;background:var(--surface-1);border-radius:14px;padding:30px 30px 24px;
+  box-shadow:0 18px 50px rgba(0,0,0,.3)}
+.acceso .sello{width:42px;height:42px;border-radius:11px;background:var(--accent);color:#08205e;
+  display:grid;place-items:center;font-weight:800;font-size:18px;margin-bottom:17px}
+.acceso h1{font-size:19px;margin-bottom:3px}
+.acceso .pie{margin:0 0 22px;font-size:12.5px;color:var(--text-2)}
+.acceso label{display:block;font-size:10.5px;text-transform:uppercase;letter-spacing:.06em;
+  color:var(--text-3);font-weight:650;margin-bottom:5px}
+.acceso input{width:100%;background:var(--surface-2);border:1px solid var(--line-strong);border-radius:8px;
+  padding:9px 11px;font:inherit;font-size:14px;color:var(--text-1);margin-bottom:15px}
+.acceso input:focus{outline:2px solid var(--brand);outline-offset:-1px;border-color:var(--brand)}
+.acceso button{width:100%;background:var(--brand);color:#fff;border:none;border-radius:8px;
+  padding:11px;font-size:14.5px;font-weight:600;cursor:pointer;margin-top:4px}
+.acceso button:hover{filter:brightness(1.08)}
+.acceso button:disabled{opacity:.6;cursor:default}
+#lgError{margin-top:13px;background:var(--crit-bg);color:var(--crit);border-radius:8px;
+  padding:9px 12px;font-size:12.5px}
+#lgError[hidden]{display:none}
+.acceso .nota{margin:20px 0 0;font-size:11.5px;color:var(--text-3);text-align:center}
+
+#cargando{position:fixed;inset:0;z-index:290;background:var(--surface-0);display:grid;place-items:center;
+  color:var(--text-2);font-size:13.5px;gap:0}
+#cargando[hidden]{display:none}
+#cargando p{margin:16px 0 0}
+.giro{width:30px;height:30px;border:3px solid var(--line);border-top-color:var(--brand);
+  border-radius:50%;animation:giro .8s linear infinite;margin:0 auto}
+@keyframes giro{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion:reduce){.giro{animation-duration:2.4s}}
+
 body{margin:0;background:var(--surface-0);color:var(--text-1);
   font:14px/1.5 "Segoe UI",system-ui,-apple-system,"Helvetica Neue",Arial,sans-serif;
   -webkit-font-smoothing:antialiased}
@@ -200,6 +234,24 @@ td.tit{min-width:320px;max-width:520px}
 </style>
 </head>
 <body>
+<!-- Puerta de acceso. La aplicacion no se muestra hasta haber sesion, y aunque
+     alguien la saltase en su navegador no veria nada: los datos no estan aqui,
+     los sirve Supabase solo a usuarios autenticados. -->
+<div id="puerta">
+  <form id="loginForm" class="acceso" autocomplete="on">
+    <div class="sello">A</div>
+    <h1>Control de Eventos</h1>
+    <p class="pie">Palacio de Ferias y Congresos de Marbella</p>
+    <label for="lgEmail">Correo electr&oacute;nico</label>
+    <input id="lgEmail" type="email" autocomplete="username" required>
+    <label for="lgPass">Contrase&ntilde;a</label>
+    <input id="lgPass" type="password" autocomplete="current-password" required>
+    <button type="submit" id="lgBtn">Entrar</button>
+    <div id="lgError" role="alert" hidden></div>
+    <p class="nota">Acceso restringido. AMMA Consulting.</p>
+  </form>
+</div>
+<div id="cargando" hidden><div class="giro"></div><p>Cargando eventos&hellip;</p></div>
 <div id="tip"></div>
 <div id="drop"><div class="box">Suelta aqu&iacute; el libro <b>Control_Eventos</b> (.xlsm / .xlsx)</div></div>
 <div id="toast"></div>
@@ -215,6 +267,7 @@ td.tit{min-width:320px;max-width:520px}
   <button class="tbtn primary" id="btnLoad">Actualizar desde Excel</button>
   <button class="tbtn" id="btnExport">Exportar</button>
   <button class="tbtn" id="btnTheme" title="Cambiar tema">Tema</button>
+  <button class="tbtn" id="btnSalir" title="Cerrar sesi&oacute;n">Salir</button>
   <input type="file" id="fileIn" accept=".xlsm,.xlsx,.xls" hidden>
 </header>
 
@@ -247,8 +300,11 @@ td.tit{min-width:320px;max-width:520px}
 </main>
 
 <script>/*__SHEETJS__*/</script>
+<script>/*__SUPABASE__*/</script>
 <script>
-const SNAPSHOT = "__SNAPSHOT__";
-const DATA_SEED = /*__DATA__*/;
+/* La clave publicable puede ir aqui: sin sesion, las politicas RLS del
+   servidor devuelven cero filas. La seguridad esta en la base de datos. */
+const SUPABASE_URL = "__SUPABASE_URL__";
+const SUPABASE_KEY = "__SUPABASE_KEY__";
 </script>
 <script>
