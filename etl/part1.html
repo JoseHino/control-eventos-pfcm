@@ -56,6 +56,15 @@ html[data-theme="dark"] #puerta{background:#101a33}
 #lgError[hidden]{display:none}
 .acceso .nota{margin:20px 0 0;font-size:11.5px;color:var(--text-3);text-align:center}
 
+#modalPass{position:fixed;inset:0;z-index:310;background:rgba(8,20,60,.62);display:grid;place-items:center;padding:26px}
+#modalPass[hidden]{display:none}
+.acceso .secundario{background:none;color:var(--text-2);border:1px solid var(--line-strong);margin-top:8px}
+.acceso .secundario:hover{filter:none;border-color:var(--brand);color:var(--brand)}
+.acceso .nota code{background:var(--surface-0);border-radius:4px;padding:1px 4px;font-size:11px}
+#pwError{margin-top:13px;background:var(--crit-bg);color:var(--crit);border-radius:8px;padding:9px 12px;font-size:12.5px}
+#pwError[hidden]{display:none}
+#pwError.ok{background:var(--good-bg);color:var(--good)}
+
 #cargando{position:fixed;inset:0;z-index:290;background:var(--surface-0);display:grid;place-items:center;
   color:var(--text-2);font-size:13.5px;gap:0}
 #cargando[hidden]{display:none}
@@ -252,6 +261,24 @@ td.tit{min-width:320px;max-width:520px}
   </form>
 </div>
 <div id="cargando" hidden><div class="giro"></div><p>Cargando eventos&hellip;</p></div>
+
+<!-- Cambio de contrase&ntilde;a. Afecta solo a la cuenta con la sesi&oacute;n abierta. -->
+<div id="modalPass" hidden>
+  <form id="passForm" class="acceso" autocomplete="off">
+    <div class="sello">A</div>
+    <h1>Cambiar contrase&ntilde;a</h1>
+    <p class="pie" id="passQuien"></p>
+    <label for="pw1">Contrase&ntilde;a nueva</label>
+    <input id="pw1" type="password" autocomplete="new-password" required minlength="8">
+    <label for="pw2">Rep&iacute;tela</label>
+    <input id="pw2" type="password" autocomplete="new-password" required minlength="8">
+    <button type="submit" id="pwBtn">Guardar</button>
+    <button type="button" id="pwCancelar" class="secundario">Cancelar</button>
+    <div id="pwError" role="alert" hidden></div>
+    <p class="nota">M&iacute;nimo 8 caracteres. Despu&eacute;s tendr&aacute;s que actualizar
+      <code>AMMA_PASSWORD</code> en el <code>.env</code> de los procesos que suben datos.</p>
+  </form>
+</div>
 <div id="tip"></div>
 <div id="drop"><div class="box">Suelta aqu&iacute; el libro <b>Control_Eventos</b> (.xlsm / .xlsx)</div></div>
 <div id="toast"></div>
@@ -267,6 +294,7 @@ td.tit{min-width:320px;max-width:520px}
   <button class="tbtn primary" id="btnLoad">Actualizar desde Excel</button>
   <button class="tbtn" id="btnExport">Exportar</button>
   <button class="tbtn" id="btnTheme" title="Cambiar tema">Tema</button>
+  <button class="tbtn" id="btnPass" title="Cambiar mi contrase&ntilde;a">Contrase&ntilde;a</button>
   <button class="tbtn" id="btnSalir" title="Cerrar sesi&oacute;n">Salir</button>
   <input type="file" id="fileIn" accept=".xlsm,.xlsx,.xls" hidden>
 </header>

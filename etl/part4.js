@@ -348,6 +348,51 @@ $("#btnSalir").addEventListener("click", async () => {
   location.reload();
 });
 
+/* ---------- Cambio de contraseña ----------
+   Actua sobre la cuenta que tiene la sesion abierta, nunca sobre otra: es
+   supabase-js quien la cambia con el token de esa sesion. */
+function abrirPass(){
+  $("#passQuien").textContent = "Cuenta: " + S.usuario;
+  $("#pw1").value = ""; $("#pw2").value = "";
+  const err = $("#pwError"); err.hidden = true; err.classList.remove("ok");
+  $("#pwBtn").disabled = false; $("#pwBtn").textContent = "Guardar";
+  $("#modalPass").hidden = false;
+  $("#pw1").focus();
+}
+function cerrarPass(){ $("#modalPass").hidden = true; }
+
+$("#btnPass").addEventListener("click", abrirPass);
+$("#pwCancelar").addEventListener("click", cerrarPass);
+$("#modalPass").addEventListener("mousedown", e => { if(e.target.id === "modalPass") cerrarPass(); });
+document.addEventListener("keydown", e => {
+  if(e.key === "Escape" && !$("#modalPass").hidden) cerrarPass();
+});
+
+$("#passForm").addEventListener("submit", async e => {
+  e.preventDefault();
+  const err = $("#pwError"), btn = $("#pwBtn");
+  const a = $("#pw1").value, b = $("#pw2").value;
+  const fallo = m => { err.textContent = m; err.classList.remove("ok"); err.hidden = false; };
+
+  if(a.length < 8) return fallo("La contraseña debe tener al menos 8 caracteres.");
+  if(a !== b){ $("#pw2").select(); return fallo("Las dos contraseñas no coinciden."); }
+
+  btn.disabled = true; btn.textContent = "Guardando…"; err.hidden = true;
+  const { error } = await sb.auth.updateUser({ password: a });
+  if(error){
+    btn.disabled = false; btn.textContent = "Guardar";
+    return fallo(/should be different/i.test(error.message)
+      ? "Esa es la contraseña que ya tenías. Elige otra."
+      : "No se ha podido cambiar: " + error.message);
+  }
+  err.textContent = "Contraseña actualizada. Acuérdate de poner la nueva en el .env de los procesos que suben datos.";
+  err.classList.add("ok"); err.hidden = false;
+  btn.textContent = "Hecho";
+  $("#pw1").value = ""; $("#pw2").value = "";
+  setTimeout(cerrarPass, 4200);
+  toast("Contraseña cambiada para " + S.usuario);
+});
+
 $("#loginForm").addEventListener("submit", async e => {
   e.preventDefault();
   const btn = $("#lgBtn"), err = $("#lgError");

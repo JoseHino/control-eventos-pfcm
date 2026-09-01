@@ -56,6 +56,15 @@ html[data-theme="dark"] #puerta{background:#101a33}
 #lgError[hidden]{display:none}
 .acceso .nota{margin:20px 0 0;font-size:11.5px;color:var(--text-3);text-align:center}
 
+#modalPass{position:fixed;inset:0;z-index:310;background:rgba(8,20,60,.62);display:grid;place-items:center;padding:26px}
+#modalPass[hidden]{display:none}
+.acceso .secundario{background:none;color:var(--text-2);border:1px solid var(--line-strong);margin-top:8px}
+.acceso .secundario:hover{filter:none;border-color:var(--brand);color:var(--brand)}
+.acceso .nota code{background:var(--surface-0);border-radius:4px;padding:1px 4px;font-size:11px}
+#pwError{margin-top:13px;background:var(--crit-bg);color:var(--crit);border-radius:8px;padding:9px 12px;font-size:12.5px}
+#pwError[hidden]{display:none}
+#pwError.ok{background:var(--good-bg);color:var(--good)}
+
 #cargando{position:fixed;inset:0;z-index:290;background:var(--surface-0);display:grid;place-items:center;
   color:var(--text-2);font-size:13.5px;gap:0}
 #cargando[hidden]{display:none}
@@ -252,6 +261,24 @@ td.tit{min-width:320px;max-width:520px}
   </form>
 </div>
 <div id="cargando" hidden><div class="giro"></div><p>Cargando eventos&hellip;</p></div>
+
+<!-- Cambio de contrase&ntilde;a. Afecta solo a la cuenta con la sesi&oacute;n abierta. -->
+<div id="modalPass" hidden>
+  <form id="passForm" class="acceso" autocomplete="off">
+    <div class="sello">A</div>
+    <h1>Cambiar contrase&ntilde;a</h1>
+    <p class="pie" id="passQuien"></p>
+    <label for="pw1">Contrase&ntilde;a nueva</label>
+    <input id="pw1" type="password" autocomplete="new-password" required minlength="8">
+    <label for="pw2">Rep&iacute;tela</label>
+    <input id="pw2" type="password" autocomplete="new-password" required minlength="8">
+    <button type="submit" id="pwBtn">Guardar</button>
+    <button type="button" id="pwCancelar" class="secundario">Cancelar</button>
+    <div id="pwError" role="alert" hidden></div>
+    <p class="nota">M&iacute;nimo 8 caracteres. Despu&eacute;s tendr&aacute;s que actualizar
+      <code>AMMA_PASSWORD</code> en el <code>.env</code> de los procesos que suben datos.</p>
+  </form>
+</div>
 <div id="tip"></div>
 <div id="drop"><div class="box">Suelta aqu&iacute; el libro <b>Control_Eventos</b> (.xlsm / .xlsx)</div></div>
 <div id="toast"></div>
@@ -267,6 +294,7 @@ td.tit{min-width:320px;max-width:520px}
   <button class="tbtn primary" id="btnLoad">Actualizar desde Excel</button>
   <button class="tbtn" id="btnExport">Exportar</button>
   <button class="tbtn" id="btnTheme" title="Cambiar tema">Tema</button>
+  <button class="tbtn" id="btnPass" title="Cambiar mi contrase&ntilde;a">Contrase&ntilde;a</button>
   <button class="tbtn" id="btnSalir" title="Cerrar sesi&oacute;n">Salir</button>
   <input type="file" id="fileIn" accept=".xlsm,.xlsx,.xls" hidden>
 </header>
@@ -1471,6 +1499,51 @@ addEventListener("drop", e => {
 $("#btnSalir").addEventListener("click", async () => {
   await sb.auth.signOut();
   location.reload();
+});
+
+/* ---------- Cambio de contraseña ----------
+   Actua sobre la cuenta que tiene la sesion abierta, nunca sobre otra: es
+   supabase-js quien la cambia con el token de esa sesion. */
+function abrirPass(){
+  $("#passQuien").textContent = "Cuenta: " + S.usuario;
+  $("#pw1").value = ""; $("#pw2").value = "";
+  const err = $("#pwError"); err.hidden = true; err.classList.remove("ok");
+  $("#pwBtn").disabled = false; $("#pwBtn").textContent = "Guardar";
+  $("#modalPass").hidden = false;
+  $("#pw1").focus();
+}
+function cerrarPass(){ $("#modalPass").hidden = true; }
+
+$("#btnPass").addEventListener("click", abrirPass);
+$("#pwCancelar").addEventListener("click", cerrarPass);
+$("#modalPass").addEventListener("mousedown", e => { if(e.target.id === "modalPass") cerrarPass(); });
+document.addEventListener("keydown", e => {
+  if(e.key === "Escape" && !$("#modalPass").hidden) cerrarPass();
+});
+
+$("#passForm").addEventListener("submit", async e => {
+  e.preventDefault();
+  const err = $("#pwError"), btn = $("#pwBtn");
+  const a = $("#pw1").value, b = $("#pw2").value;
+  const fallo = m => { err.textContent = m; err.classList.remove("ok"); err.hidden = false; };
+
+  if(a.length < 8) return fallo("La contraseña debe tener al menos 8 caracteres.");
+  if(a !== b){ $("#pw2").select(); return fallo("Las dos contraseñas no coinciden."); }
+
+  btn.disabled = true; btn.textContent = "Guardando…"; err.hidden = true;
+  const { error } = await sb.auth.updateUser({ password: a });
+  if(error){
+    btn.disabled = false; btn.textContent = "Guardar";
+    return fallo(/should be different/i.test(error.message)
+      ? "Esa es la contraseña que ya tenías. Elige otra."
+      : "No se ha podido cambiar: " + error.message);
+  }
+  err.textContent = "Contraseña actualizada. Acuérdate de poner la nueva en el .env de los procesos que suben datos.";
+  err.classList.add("ok"); err.hidden = false;
+  btn.textContent = "Hecho";
+  $("#pw1").value = ""; $("#pw2").value = "";
+  setTimeout(cerrarPass, 4200);
+  toast("Contraseña cambiada para " + S.usuario);
 });
 
 $("#loginForm").addEventListener("submit", async e => {
