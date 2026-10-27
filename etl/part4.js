@@ -348,3 +348,14 @@ if(!restaurar()){
   S.snapshot = SNAPSHOT;
 }
 pintarTodo();
+
+/* Fuente bajo cada gráfica: los datos salen del registro interno del Palacio (sin enlace público). */
+(function(){
+  const FUENTE = 'Fuente: Palacio de Ferias y Congresos de Marbella · registro interno «Control_Eventos»';
+  const pon = () => document.querySelectorAll('.card').forEach(c => {
+    if (c.classList.contains('kpi') || c.querySelector('.fuente-graf') || !c.querySelector('svg, canvas')) return;
+    const p = document.createElement('p'); p.className = 'fuente-graf'; p.textContent = FUENTE; c.appendChild(p);
+  });
+  new MutationObserver(pon).observe(document.body, {childList: true, subtree: true});
+  pon();
+})();
