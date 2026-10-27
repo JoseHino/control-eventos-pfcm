@@ -60,9 +60,8 @@ const grupoDe = k => GRUPOS.find(g => g.k === k) || {n: k || "(sin tipología)",
 /* ---------- Estado ---------- */
 const S = {
   rows: [],
-  snapshot: null,
-  origen: "",
-  esAmma: false, usuario: "", cliente: "", clienteId: null,
+  snapshot: SNAPSHOT,
+  origen: "datos incorporados (libros 2024 + 2026)",
   f: {ano:"", grupo:"", car:"", del:"", fact:"", q:"", anul:false},
   sort: {col:"i", dir:-1},
   page: 0,
@@ -71,95 +70,23 @@ const S = {
 };
 const PER = 60;
 
-/* ---------- Acceso a datos (Supabase) ----------
-   Los eventos NO viajan dentro de esta pagina: los sirve Supabase y solo a
-   usuarios autenticados. Un visitante sin sesion recibe cero filas del propio
-   servidor, no por una comprobacion en el navegador. */
-const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-const SLUG = "pfcm";
-const PAGINA = 1000;   // tope de filas por peticion en PostgREST
-const LOTE = 400;      // filas por insercion al guardar
-
-/* Fila de la base de datos -> registro interno de la aplicacion */
-const deBD = r => {
-  const d = {c:r.codigo, t:r.titulo, i:r.fecha_inicio, f:r.fecha_fin, tp:r.tipo,
-             m:r.modalidad, g:r.tipologia, ca:r.caracter, d:r.delegacion,
-             fb:r.facturable ? "F" : "NF", a:r.asistentes, an:r.anulado ? 1 : 0,
-             imp:r.facturacion, x:r.conflicto};
-  Object.keys(d).forEach(k => { if(d[k] === null || d[k] === undefined) delete d[k]; });
-  return d;
-};
-
-/* Registro interno -> fila de la base de datos */
-const aBD = (r, cid) => ({
-  cliente_id: cid, codigo: r.c || null, titulo: r.t || null,
-  fecha_inicio: r.i, fecha_fin: r.f || null, tipo: r.tp || null,
-  modalidad: r.m || null, tipologia: r.g || null, caracter: r.ca || null,
-  delegacion: r.d || null, facturable: r.fb === "F",
-  asistentes: (typeof r.a === "number" ? r.a : null),
-  anulado: !!r.an, facturacion: (typeof r.imp === "number" ? r.imp : null),
-  conflicto: r.x || null, origen: S.origen || null
-});
-
-async function cargarDeServidor(){
-  const { data: { user } } = await sb.auth.getUser();
-
-  /* El perfil decide que puede hacer quien entra. La politica deja leer el propio. */
-  const { data: perfil } = await sb.from("perfiles")
-    .select("rol, nombre").eq("user_id", user.id).maybeSingle();
-  S.esAmma = perfil ? perfil.rol === "amma" : false;
-  S.usuario = (perfil && perfil.nombre) || user.email;
-
-  const { data: cli, error: eCli } = await sb.from("clientes")
-    .select("id, nombre, actualizado_en").eq("slug", SLUG).maybeSingle();
-  if(eCli) throw new Error(eCli.message);
-  if(!cli) throw new Error("tu usuario no tiene acceso a los datos del Palacio de Congresos.");
-  S.clienteId = cli.id;
-  S.cliente = cli.nombre;
-  S.snapshot = (cli.actualizado_en || "").slice(0,10) || hoyISO();
-
-  /* PostgREST devuelve como mucho 1.000 filas por peticion: hay que paginar. */
-  const filas = [];
-  for(let desde = 0; ; desde += PAGINA){
-    const { data, error } = await sb.from("eventos").select("*")
-      .eq("cliente_id", cli.id).order("fecha_inicio", {ascending:true})
-      .range(desde, desde + PAGINA - 1);
-    if(error) throw new Error(error.message);
-    filas.push(...data);
-    if(data.length < PAGINA) break;
-  }
-  S.rows = filas.map(deBD);
-  S.origen = "Supabase · " + S.rows.length + " eventos";
-  return S.rows.length;
+/* ---------- Persistencia local ---------- */
+function guardar(){
+  try{
+    localStorage.setItem("pfcm_eventos_v1", JSON.stringify({
+      rows: S.rows, snapshot: S.snapshot, origen: S.origen, ts: Date.now()
+    }));
+  }catch(e){ /* cuota llena: seguimos en memoria */ }
 }
-
-async function guardarEnServidor(){
-  if(!S.esAmma) throw new Error("solo el equipo de AMMA puede escribir.");
-  if(!S.rows.length) throw new Error("no hay nada que guardar.");
-
-  /* Se insertan las filas nuevas ANTES de borrar las viejas: si algo falla a
-     mitad, los datos anteriores siguen ahi. Nunca hay un momento sin datos. */
-  const { data: previas, error: ePrev } = await sb.from("eventos")
-    .select("id").eq("cliente_id", S.clienteId);
-  if(ePrev) throw new Error(ePrev.message);
-  const viejas = previas.map(r => r.id);
-
-  const nuevas = S.rows.filter(r => r.i).map(r => aBD(r, S.clienteId));
-  for(let k = 0; k < nuevas.length; k += LOTE){
-    const { error } = await sb.from("eventos").insert(nuevas.slice(k, k + LOTE));
-    if(error) throw new Error(error.message);
-  }
-  for(let k = 0; k < viejas.length; k += PAGINA){
-    const { error } = await sb.from("eventos").delete()
-      .in("id", viejas.slice(k, k + PAGINA));
-    if(error) throw new Error("filas nuevas guardadas, pero no se pudieron retirar las anteriores: " + error.message);
-  }
-  /* La fecha que se guarda es la del libro importado, no la de ahora: es lo que
-     permite que el aviso de datos obsoletos siga teniendo sentido. */
-  await sb.from("clientes")
-    .update({actualizado_en: (S.snapshot || hoyISO()) + "T00:00:00Z"})
-    .eq("id", S.clienteId);
-  return nuevas.length;
+function restaurar(){
+  try{
+    const raw = localStorage.getItem("pfcm_eventos_v1");
+    if(!raw) return false;
+    const o = JSON.parse(raw);
+    if(!o || !Array.isArray(o.rows) || !o.rows.length) return false;
+    S.rows = o.rows; S.snapshot = o.snapshot || SNAPSHOT; S.origen = o.origen || S.origen;
+    return true;
+  }catch(e){ return false; }
 }
 
 /* ---------- Filtrado ---------- */
