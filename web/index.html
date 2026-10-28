@@ -804,9 +804,8 @@ function renderPanel(){
     return f;
   });
   h += '<div class="sec">Estacionalidad</div>';
-  h += '<div class="card"><h3>Eventos por mes y año</h3>' +
-       '<div class="hint">Cuanto más intenso el azul, más eventos. Sirve para localizar los valles de programación.</div>' +
-       '<div class="chartwrap scroll-x">' + chartHeatmap(anios, matriz, {aria:"Mapa de calor de eventos por mes y año"}) + '</div></div>';
+  h += '<div class="card"><h3>Mapa de intensidad de eventos</h3>' +
+       '<div class="chartwrap scroll-x">' + chartHeatmap(anios, matriz, {aria:"Mapa de intensidad de eventos por mes y año"}) + '</div></div>';
 
   /* Mix por tipologia */
   const series = GRUPOS.map(g => ({n:g.n, c:g.c,
