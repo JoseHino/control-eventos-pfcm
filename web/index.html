@@ -747,26 +747,23 @@ function delta(cur, prev, invertir){
 function renderPanel(){
   /* resumen() ya separa anulados de celebrados, asi que se le pasa el conjunto
      completo: si respetaramos la casilla "incluir anulados" el KPI daria siempre 0. */
-  const rows = conAnulados();
+  /* Sin año elegido, los KPI muestran el ultimo año completo, no la suma del periodo. */
+  const hoy = hoyISO(), yHoy = +hoy.slice(0,4);
+  const anoSel = S.f.ano ? +S.f.ano : yHoy - 1;
+  const rows = conAnulados({ano:String(anoSel)});
   const s = resumen(rows);
   const sinAno = conAnulados({ano:""});
   const ys = porAnio(sinAno);
-  const anoSel = S.f.ano ? +S.f.ano : null;
-  const prev = anoSel ? ys.find(a => a.y === anoSel-1) : null;
-  const per = ys.length ? (ys[0].y + " – " + ys[ys.length-1].y) : "";
+  const prev = ys.find(a => a.y === anoSel-1);
+  const ps = prev ? prev.s : {};
 
   let h = '<div class="grid k6">';
-  h += kpi("Eventos celebrados", nf(s.n),
-        anoSel ? delta(s.n, prev && prev.s.n) : "periodo "+per);
-  h += kpi("Asistentes", nf(s.asist),
-        anoSel ? delta(s.asist, prev && prev.s.asist) : "en "+nf(s.conAsist)+" de "+nf(s.n)+" eventos");
-  h += kpi("Media por evento", nf(s.media),
-        anoSel ? delta(s.media, prev && prev.s.media) : "asistentes / evento con dato");
-  h += kpi("Facturables", nf(s.fact),
-        '<span class="delta '+(s.pctFact>=25?"up":"flat")+'">'+nf1(s.pctFact)+'%</span> del total');
-  h += kpi("Anulados", nf(s.anul),
-        '<span class="delta '+(s.pctAnul>=UMBRAL.anulacionPct?"down":"flat")+'">'+nf1(s.pctAnul)+'%</span> de los expedientes');
-  h += kpi("Días de actividad", nf(s.dias), "jornadas ocupadas (suma de eventos)");
+  h += kpi("Eventos en "+anoSel, nf(s.n), delta(s.n, ps.n));
+  h += kpi("Asistentes en "+anoSel, nf(s.asist), delta(s.asist, ps.asist));
+  h += kpi("Media por evento", nf(s.media), delta(s.media, ps.media));
+  h += kpi("Facturables", nf(s.fact), delta(s.fact, ps.fact));
+  h += kpi("Anulados", nf(s.anul), delta(s.anul, ps.anul, true));
+  h += kpi("Días de actividad", nf(s.dias), delta(s.dias, ps.dias));
   h += '</div>';
 
   /* Evolucion: dos graficas separadas, nunca dos ejes en una */
@@ -780,7 +777,6 @@ function renderPanel(){
       {aria:"Eventos contratados por año"}));
   /* Celebrados: solo lo que ya ha empezado a fecha de hoy. Un evento que cruza
      de un año a otro cuenta en cada año en que tuvo actividad. */
-  const hoy = hoyISO(), yHoy = +hoy.slice(0,4);
   const cel = new Map();
   sinAno.forEach(r => {
     if(r.an || !r.i || r.i > hoy) return;
