@@ -194,12 +194,27 @@ function renderPanel(){
   /* Evolucion: dos graficas separadas, nunca dos ejes en una */
   const yy = ys.filter(a => a.s.n > 0);
   h += '<div class="sec">Evolución anual</div><div class="grid c2">';
-  h += tarjeta("Eventos celebrados por año", "Excluye anulados. Los años futuros recogen solo reservas ya comprometidas.",
+  h += tarjeta("Eventos contratados por año", "Por año de inicio y sin anulados. Los años futuros recogen solo reservas ya comprometidas.",
     chartBarras(yy.map(a => ({k:a.y, v:a.s.n,
       tip:"<div class='tt'>"+a.y+"</div><div class='tr'><span>Eventos</span><b>"+nf(a.s.n)+
           "</b></div><div class='tr'><span>Facturables</span><b>"+nf(a.s.fact)+
           "</b></div><div class='tr'><span>Anulados</span><b>"+nf(a.s.anul)+"</b></div>"})),
-      {aria:"Eventos por año"}));
+      {aria:"Eventos contratados por año"}));
+  /* Celebrados: solo lo que ya ha empezado a fecha de hoy. Un evento que cruza
+     de un año a otro cuenta en cada año en que tuvo actividad. */
+  const hoy = hoyISO(), yHoy = +hoy.slice(0,4);
+  const cel = new Map();
+  sinAno.forEach(r => {
+    if(r.an || !r.i || r.i > hoy) return;
+    const y1 = Math.min(+(r.f || r.i).slice(0,4), yHoy);
+    for(let y = +r.i.slice(0,4); y <= y1; y++) cel.set(y, (cel.get(y)||0) + 1);
+  });
+  const ycel = Array.from(cel.keys()).sort((a,b)=>a-b);
+  h += tarjeta("Eventos celebrados por año", "Según sus fechas de inicio y fin, y solo los ya iniciados a "+fecha(hoy)+". Sin anulados.",
+    chartBarras(ycel.map(y => ({k:y, v:cel.get(y), c:"var(--s2)",
+      tip:"<div class='tt'>"+y+(y === yHoy ? " (hasta hoy)" : "")+"</div><div class='tr'><span>Celebrados</span><b>"+
+          nf(cel.get(y))+"</b></div>"})),
+      {aria:"Eventos celebrados por año"}));
   h += tarjeta("Asistentes por año", "Suma de la columna ASISTENTES; los eventos sin dato no suman.",
     chartBarras(yy.map(a => ({k:a.y, v:a.s.asist, c:"var(--s3)",
       tip:"<div class='tt'>"+a.y+"</div><div class='tr'><span>Asistentes</span><b>"+nf(a.s.asist)+
