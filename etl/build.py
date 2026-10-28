@@ -16,7 +16,7 @@ RAIZ = os.path.dirname(AQUI)
 DESTINO = os.path.join(RAIZ, 'web', 'index.html')
 
 # Fecha del libro mas reciente incorporado a los datos de arranque.
-SNAPSHOT = '2026-01-05'
+SNAPSHOT = '2026-10-28'
 
 leer = lambda *p: io.open(os.path.join(AQUI, *p), encoding='utf-8').read()
 

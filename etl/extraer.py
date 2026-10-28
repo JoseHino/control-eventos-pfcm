@@ -11,7 +11,8 @@ import openpyxl
 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
 warnings.filterwarnings("ignore")
 
-ORIGEN = r"C:\AMMA\Clientes\PFCM\IA"
+# "Ultimo" es donde PFCM deja los libros nuevos desde octubre de 2026.
+ORIGENES = [r"C:\AMMA\Clientes\PFCM\IA", r"C:\AMMA\Clientes\PFCM\Ultimo"]
 AQUI = os.path.dirname(os.path.abspath(__file__))
 DESTINO = os.path.join(AQUI, "eventos.json")
 
@@ -27,7 +28,8 @@ def orden(ruta):
     buscan por nombre exacto: se localizan por patron y se ordenan por ese sello.
     """
     m = re.search(r"\((\d{6})\)", os.path.basename(ruta))
-    return (m.group(1) if m else "000000", os.path.getmtime(ruta))
+    sello = m.group(1) if m else datetime.date.fromtimestamp(os.path.getmtime(ruta)).strftime("%y%m%d")
+    return (sello, os.path.getmtime(ruta))
 
 
 def texto(v):
@@ -45,21 +47,23 @@ def numero(v):
     return v if isinstance(v, (int, float)) and not isinstance(v, bool) else None
 
 
-libros = sorted(glob.glob(os.path.join(ORIGEN, "*.xlsm")), key=orden)
+libros = sorted((l for o in ORIGENES for l in glob.glob(os.path.join(o, "*.xlsm"))), key=orden)
 if not libros:
     # Una lectura fallida no debe dejar el destino vacio: se aborta sin escribir.
-    sys.exit("ERROR: ningun .xlsm en " + ORIGEN + ". No se toca " + DESTINO)
+    sys.exit("ERROR: ningun .xlsm en " + ", ".join(ORIGENES) + ". No se toca " + DESTINO)
 print("libros (de mas antiguo a mas reciente):")
 for l in libros:
     print("  -", os.path.basename(l))
 
 recs, orden_claves = {}, []
 for fi, ruta in enumerate(libros):
-    ultimo = (fi == len(libros) - 1)
     hoja = openpyxl.load_workbook(ruta, data_only=True)["BD"]
     for r in range(3, hoja.max_row + 1):
         d = dict(zip(COLS, [hoja.cell(r, c).value for c in range(1, 18)]))
         if not d['CODIGO'] and not d['TITULO']:
+            continue
+        # Filas de rotulo al final del formato ("aqui se acaba el formato"): sin codigo ni fecha.
+        if not d['CODIGO'] and not d['FECHA_INICIO']:
             continue
         rec = {k: texto(v) for k, v in d.items()}
         for k in ('FACT_ESPACIO', 'FACT_SERVICIOS', 'FACT_TOTAL', 'ASISTENTES'):
@@ -71,9 +75,11 @@ for fi, ruta in enumerate(libros):
         if clave not in recs:
             recs[clave] = rec
             orden_claves.append(clave)
-        elif not ultimo:
+        elif recs[clave]['ORIGEN'] == rec['ORIGEN']:
             # Mismo codigo repetido dentro del mismo libro: son eventos distintos con
             # un codigo mal tecleado. Se conservan para que el aviso los senale.
+            # (Antes se miraba "no es el ultimo libro", y con tres libros duplicaba
+            # los solapes entre los dos primeros.)
             recs[clave + '#' + str(r)] = rec
             orden_claves.append(clave + '#' + str(r))
         else:
