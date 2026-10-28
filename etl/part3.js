@@ -191,26 +191,27 @@ function renderPanel(){
   /* Evolucion: dos graficas separadas, nunca dos ejes en una */
   const yy = ys.filter(a => a.s.n > 0);
   h += '<div class="sec">Evolución anual</div><div class="grid c2">';
+  /* Facturados y no facturados apilados, como en la tabla de la Revision por la Direccion */
+  const SFB = [{n:"Facturados", c:"var(--s1)"}, {n:"No facturados", c:"var(--s5)"}];
+  const apilarFb = (cats, cuenta) => SFB.map((se,j) => ({n:se.n, c:se.c, v:cats.map(y => cuenta(y)[j])}));
   h += tarjeta("Eventos contratados por año", "Por año de inicio y sin anulados. Los años futuros recogen solo reservas ya comprometidas.",
-    chartBarras(yy.map(a => ({k:a.y, v:a.s.n,
-      tip:"<div class='tt'>"+a.y+"</div><div class='tr'><span>Eventos</span><b>"+nf(a.s.n)+
-          "</b></div><div class='tr'><span>Facturables</span><b>"+nf(a.s.fact)+
-          "</b></div><div class='tr'><span>Anulados</span><b>"+nf(a.s.anul)+"</b></div>"})),
-      {aria:"Eventos contratados por año"}));
+    chartApiladas(yy.map(a => a.y), apilarFb(yy.map(a => a.y), y => {
+      const a = yy.find(x => x.y === y); return [a.s.fact, a.s.n - a.s.fact]; }),
+      {h:210, aria:"Eventos contratados por año"}) + leyenda(SFB));
   /* Celebrados: solo lo que ya ha empezado a fecha de hoy. Un evento que cruza
      de un año a otro cuenta en cada año en que tuvo actividad. */
   const cel = new Map();
   sinAno.forEach(r => {
     if(r.an || !r.i || r.i > hoy) return;
     const y1 = Math.min(+(r.f || r.i).slice(0,4), yHoy);
-    for(let y = +r.i.slice(0,4); y <= y1; y++) cel.set(y, (cel.get(y)||0) + 1);
+    for(let y = +r.i.slice(0,4); y <= y1; y++){
+      if(!cel.has(y)) cel.set(y, [0,0]);
+      cel.get(y)[r.fb === "F" ? 0 : 1]++;
+    }
   });
   const ycel = Array.from(cel.keys()).sort((a,b)=>a-b);
   h += tarjeta("Eventos celebrados por año", "Según sus fechas de inicio y fin, y solo los ya iniciados a "+fecha(hoy)+". Sin anulados.",
-    chartBarras(ycel.map(y => ({k:y, v:cel.get(y), c:"var(--s2)",
-      tip:"<div class='tt'>"+y+(y === yHoy ? " (hasta hoy)" : "")+"</div><div class='tr'><span>Celebrados</span><b>"+
-          nf(cel.get(y))+"</b></div>"})),
-      {aria:"Eventos celebrados por año"}));
+    chartApiladas(ycel, apilarFb(ycel, y => cel.get(y)), {h:210, aria:"Eventos celebrados por año"}) + leyenda(SFB));
   h += tarjeta("Asistentes por año", "Suma de la columna ASISTENTES; los eventos sin dato no suman.",
     chartBarras(yy.map(a => ({k:a.y, v:a.s.asist, c:"var(--s3)",
       tip:"<div class='tt'>"+a.y+"</div><div class='tr'><span>Asistentes</span><b>"+nf(a.s.asist)+
