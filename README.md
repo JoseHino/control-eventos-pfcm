@@ -11,7 +11,7 @@ van **dentro** de la página. Se publica en GitHub Pages con una Action que sube
 la carpeta `web/`.
 
 ```
-Excel en C:\AMMA\Clientes\PFCM\IA
+Excel en C:\AMMA\Clientes\PFCM\IA y C:\AMMA\Clientes\PFCM\Ultimo
         │  etl/extraer.py   consolida los libros       -> etl/eventos.json
         │  etl/compact.py   claves cortas, sin vacíos  -> etl/eventos_min.json
         │  etl/build.py     incrusta datos y código     -> web/index.html
